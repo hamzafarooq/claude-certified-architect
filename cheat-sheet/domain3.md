@@ -303,6 +303,41 @@ CI-invoked Claude Code reads the same `.claude/CLAUDE.md`. For test generation e
 
 **Exam phrasing:** *"CI generates low-quality tests"* → strengthen `.claude/CLAUDE.md` with testing standards.
 
+**Test deduplication (commonly missed — from TS 3.6 Skills):**
+
+When using CI for test generation, provide **existing test files** in context alongside the source file. Without them, Claude proposes scenarios already covered — duplicating tests already in the suite.
+
+**Two separate context problems in test generation:**
+
+| Problem | Fix |
+|---|---|
+| Low-quality tests (boilerplate, getters) | Document valuable-test criteria and fixtures in `.claude/CLAUDE.md` |
+| **Duplicate tests** (scenarios already covered) | **Provide existing test files in the prompt context** |
+
+These look similar but have different solutions. The exam may present both options — pick based on which problem is described.
+
+---
+
+## TS 3.6 — CI/CD Quick Reference (The 5 Failure Patterns)
+
+These are the five patterns that most commonly produce wrong answers on CI/CD questions. Memorise the symptom → fix mapping:
+
+| Symptom | Root cause | Fix |
+|---|---|---|
+| CI job **hangs indefinitely** | Claude Code waiting for interactive input | Add `-p` flag |
+| PR comments need to be **posted automatically** as inline comments | Output is narrative prose, not structured data | `--output-format json --json-schema` |
+| **Duplicate comments** on every new commit | No context about what was already reviewed | Include prior findings + instruct "report only new or unaddressed issues" |
+| **Review misses issues** in code that wasn't changed in the latest commit | Running only the incremental diff | Still run full review; prior-findings context handles deduplication |
+| CI generates **duplicate tests** | Doesn't know what's already covered | Provide existing test files in context |
+
+**What blocks CI most on the exam:** the `-p` flag. If you see "hangs" or "waiting for input" — that is the answer, always.
+
+**The independent-session rule appears twice:**
+- Domain 3 (CI/CD): use a fresh Claude Code session for review, not the one that generated the code
+- Domain 4 (multi-instance review): use an independent Claude instance to review generated code without the generator's reasoning context
+
+Same principle, two domains. On a CI/CD question it maps to `-p` + separate session. On a prompt-engineering question it maps to multi-instance architecture.
+
 ---
 
 ## Distractor-Recognition Cribsheet

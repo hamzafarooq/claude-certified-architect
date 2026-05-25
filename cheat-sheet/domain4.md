@@ -177,6 +177,8 @@ Add a `detected_pattern` field to each structured finding (e.g., `"unvalidated_u
 
 ## TS 4.5 — Batch Processing
 
+> **CI/CD note:** Scenario 5 (Claude Code for CI) is a primary domain for Domain 4. The batch API and multi-pass review questions in this domain appear in CI/CD framing. The rules below apply directly.
+
 **Message Batches API — five facts to memorise:**
 
 1. **50% cost savings** vs synchronous
@@ -373,6 +375,31 @@ Many wrong answers come from reaching for the right idea at the wrong layer:
 
 **When you feel the pull toward a fix, ask which layer the question is testing.**
 A fabrication problem is a schema-design question (nullable), not a prompt-content question ("don't fabricate"). A batch-failure question is a `custom_id` question, not a retry question. A self-review limitation is a multi-instance question, not a prompt-content question. Don't cross layers.
+
+---
+
+## CI/CD Cross-Domain Map
+
+CI/CD questions span both Domain 3 and Domain 4. When a question is framed as "Claude Code for CI/CD," the answer might live in either domain. Use this map to route quickly:
+
+| Problem type | Domain | Fix |
+|---|---|---|
+| Pipeline hangs / waits for input | **D3** | `-p` flag |
+| Need machine-parseable PR comments | **D3** | `--output-format json --json-schema` |
+| Duplicate comments after new commits | **D3** | Prior findings in context + "report only new issues" |
+| CI generates duplicate tests | **D3** | Provide existing test files in context |
+| Review generates low-quality tests | **D3** | Strengthen `.claude/CLAUDE.md` with test criteria |
+| Vague instructions don't reduce false positives | **D4** | Categorical criteria: "flag X, skip Y, report Z" |
+| Instructions produce inconsistent output | **D4** | 2–4 few-shot examples with reasoning |
+| Pre-merge check vs overnight report — which uses batch? | **D4** | Pre-merge = sync (blocking). Overnight = batch (latency-tolerant) |
+| Large PR review gives inconsistent depth per file | **D4** | Per-file local passes + separate cross-file integration pass |
+| Generated code reviewed by the generator session | **D4** | Independent instance (fresh session, no prior context) |
+
+**The one rule that appears in both domains in different forms:**
+
+> An agent/session that produced output should not review that same output. Use an independent instance.
+
+In Domain 3 it's framed as "CI code review session." In Domain 4 it's framed as "self-review limitation." Same answer.
 
 ---
 
