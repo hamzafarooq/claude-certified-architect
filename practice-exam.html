@@ -535,6 +535,46 @@ const DOMAINS = [
               "Implement local error recovery within the subagent: try fallback parsers for corrupt sections, skip unrecoverable sections with a partial-result flag, and return structured error context only for truly unresolvable failures."],
         correct:3,
         exp:"<strong>Local recovery within subagents — propagate only what can't be resolved locally.</strong> Transient and recoverable failures (corrupted sections, library timeouts) should be handled inside the subagent with fallbacks, partial results, and a flag indicating what was skipped. The coordinator should receive structured error context only for truly unresolvable failures. This eliminates excessive coordinator involvement in routine handling while preserving recovery information for complex cases. Coordinator-level retry (A) invokes the full subagent again on every failure — expensive and unnecessary for recoverable issues."
+      },
+      {
+        scenario:"Multi-Agent Research System",
+        q:"You've defined a coordinator agent with a system prompt instructing it to delegate research subtasks to specialized subagents. During testing, the coordinator produces detailed analysis but never delegates to any subagent — it handles everything itself. The most likely cause is:",
+        opts:["The coordinator's system prompt doesn't explicitly name which subagents to invoke.",
+              "The subagent definitions don't have system prompts configured.",
+              "<code>\"Task\"</code> is not included in the coordinator's <code>allowedTools</code> configuration.",
+              "The coordinator needs more context about the research topic before it will decide to delegate."],
+        correct:2,
+        exp:"<strong>allowedTools must include \"Task\" for a coordinator to spawn subagents.</strong> The Task tool is the mechanism for subagent invocation. Without it in allowedTools, the coordinator literally cannot call subagents regardless of what its system prompt says. This is a configuration requirement, not a prompting problem. Subagent system prompts (B) don't affect whether the coordinator can call them."
+      },
+      {
+        scenario:"Claude Code for CI/CD",
+        q:"Your automated code review runs three steps on every PR: (1) analyze each file individually for local issues, (2) run a cross-file integration pass for data flow and contract issues, (3) generate a severity-ranked summary. The structure never varies. Which decomposition pattern is this, and is it the right choice?",
+        opts:["Dynamic decomposition — appropriate because findings from step 1 could change what step 2 needs to examine.",
+              "Fixed sequential pipeline (prompt chaining) — appropriate because the structure is stable and each step consumes the prior step's output.",
+              "Evaluator-optimiser — appropriate because step 3 evaluates the quality of the prior steps.",
+              "Fixed sequential pipeline — but wrong; dynamic decomposition would skip unnecessary passes on simple PRs."],
+        correct:1,
+        exp:"<strong>Fixed sequential pipeline for stable, predictable workflows.</strong> Prompt chaining is the right pattern when the structure doesn't need to adapt based on intermediate findings — each step consumes the prior step's output in a defined sequence. Dynamic decomposition adds overhead without benefit here since all three passes are always valuable regardless of PR content. Evaluator-optimiser (C) requires an objective quality signal to iterate against."
+      },
+      {
+        scenario:"Multi-Agent Research System",
+        q:"You want to explore two competing architectural approaches for the research pipeline — a sequential pipeline vs a parallel fan-out design — starting from the same codebase analysis you completed this morning. You need both explorations to stay independent so findings don't cross-contaminate. Which mechanism is designed for this?",
+        opts:["Open two separate Claude Code terminal sessions and manually synchronize findings at the end.",
+              "Use <code>--resume</code> with two different session names, one per approach.",
+              "Use <code>fork_session</code> to create two independent branches from the shared analysis baseline.",
+              "Run two Task tool calls in a single coordinator response, one per approach."],
+        correct:2,
+        exp:"<strong>fork_session creates independent exploration branches from a shared analysis baseline.</strong> Both branches start with the same codebase understanding; their findings don't contaminate each other. --resume (B) continues a session linearly — it doesn't branch. Two terminal sessions (A) don't share the prior analysis. Task tool calls (D) are for spawning subagents in a multi-agent system, not for branching your own exploration."
+      },
+      {
+        scenario:"Code Generation with Claude Code",
+        q:"Last week you ran a deep codebase exploration session, mapping authentication flows and service boundaries. Since then, the team merged a major refactor of the auth module. You want to continue analysis using the prior findings. What's the most reliable approach?",
+        opts:["Resume the prior session using <code>--resume</code> — it already has the full codebase map and tool results.",
+              "Start a new session and re-explore the entire codebase from scratch to avoid any stale assumptions.",
+              "Start a new session, inject a structured summary of the valid prior findings, and explicitly note that the auth module has changed.",
+              "Resume the prior session and instruct Claude to ignore its previous observations about the auth module."],
+        correct:2,
+        exp:"<strong>New session + structured summary when prior tool results are stale.</strong> The auth module refactor means prior tool results for that area are stale — resuming imports them as if current. The reliable pattern: start fresh, inject a summary of findings that remain valid, and call out what changed so the new session investigates correctly. Resume is appropriate when prior context is mostly valid — here, a major refactor invalidates a key portion."
       }
     ]
   },
@@ -602,6 +642,16 @@ const DOMAINS = [
               ".claude/settings.json with the token stored as a CI/CD pipeline secret."],
         correct:1,
         exp:"<strong>Project-level MCP = .mcp.json in the repo root.</strong> Version-controlled, available to all team members on clone/pull. Environment variable expansion (e.g., <code>\&#36;{GITHUB_TOKEN}</code>) handles credentials without committing secrets. ~/.claude.json is for personal/experimental servers — not shared via version control."
+      },
+      {
+        scenario:"Developer Productivity Tools",
+        q:"While helping a developer refactor a large utility file, Claude attempts to use the Edit tool to update a repeated helper pattern, but the edit fails — the anchor text appears dozens of times and is not unique. What's the correct recovery approach?",
+        opts:["Use Grep to find all instances, then run Edit once per match using the surrounding lines as unique anchor text.",
+              "Use Bash with <code>sed</code> to perform a global search-and-replace across the file.",
+              "Use Read to load the full file contents, apply all modifications, then use Write to save the complete updated file.",
+              "Use Glob to identify all files containing the pattern and edit them one at a time."],
+        correct:2,
+        exp:"<strong>When Edit fails due to non-unique anchor text, the fallback is Read + Write.</strong> Load the full file, apply all changes in memory, write it back completely. This is reliable regardless of how many times the pattern appears. Multiple Edit calls (A) still fail when the surrounding context is also repeated. sed via Bash (B) works but bypasses the intended tooling. Glob (D) matches file paths by pattern — it's not a content-modification tool."
       }
     ]
   },
@@ -719,6 +769,16 @@ const DOMAINS = [
               "Increase <code>max_tokens</code> so Claude can process the full PR history and deduplicate findings internally."],
         correct:1,
         exp:"<strong>Inject prior findings as context and instruct Claude to report only what's new or unresolved.</strong> This directly prevents duplicate comments. Running only the new diff (A) misses issues that span files unchanged in the latest commits. Independent instances (C) have no knowledge of what was already reported. max_tokens (D) is irrelevant — the problem is the missing instruction, not output length."
+      },
+      {
+        scenario:"Code Generation with Claude Code",
+        q:"A developer is implementing a Redis caching layer for the first time. They have a rough idea of what they need but are unfamiliar with cache invalidation strategies, stampede prevention, and failure mode implications. They ask Claude to implement the solution immediately. What iterative technique best ensures these concerns are addressed before any code is written?",
+        opts:["Direct execution — start implementing and revisit design decisions as complexity emerges during development.",
+              "Plan mode — explore what a Redis implementation would look like before committing to an approach.",
+              "The interview pattern — have Claude ask targeted questions to surface cache design considerations before writing code.",
+              "Test-driven iteration — write cache behaviour tests first, then implement to make them pass."],
+        correct:2,
+        exp:"<strong>Interview pattern for unfamiliar domains: have Claude ask questions first.</strong> The developer doesn't know what they don't know — cache invalidation strategies, stampede prevention (e.g., cache locking), TTL decisions, and failure modes are all non-obvious. The interview pattern surfaces these before a single line is written. Plan mode (B) explores implementation options but doesn't surface the developer's unstated requirements. Test-driven (D) requires the developer to already know the edge cases to test."
       }
     ]
   },
@@ -856,6 +916,16 @@ const DOMAINS = [
               "Run two independent review instances and only surface findings that appear in both."],
         correct:1,
         exp:"<strong>Inline rationale eliminates the click-through without filtering.</strong> Developers read rule + reasoning directly in the list — no navigation required. Confidence scores (A) still require opening the finding to validate whether the score is justified. Scope reduction (C) and consensus filtering (D) are pre-review filters — explicitly ruled out by stakeholders."
+      },
+      {
+        scenario:"Structured Data Extraction",
+        q:"Your invoice extraction pipeline returns structured JSON but validation catches that extracted dates are formatted as MM/DD/YYYY when your schema requires ISO 8601 (YYYY-MM-DD). The rest of the extraction looks correct. What's the most effective fix?",
+        opts:["Add 'return dates in ISO 8601 format' to the system prompt and re-run the full extraction.",
+              "Add a post-processing step that reformats all date strings using a regex before validation.",
+              "Send a follow-up request including the original invoice, the failed extraction output, and the specific validation error ('date field must be YYYY-MM-DD, got MM/DD/YYYY'), and ask the model to correct it.",
+              "Make the date field nullable and handle format normalisation in the application layer."],
+        correct:2,
+        exp:"<strong>Validation-retry with specific error feedback for format mismatches.</strong> A wrong date format is an output error (wrong structure) — not absent data. This is exactly when retry-with-error-feedback works: the model self-corrects when given the original document, the failed output, and a specific error message. Cheaper than a full re-run. Nullable + app-layer (D) fixes fabrication, not format errors. Regex post-processing (B) works but fixes the symptom outside the model rather than correcting the extraction."
       }
     ]
   },
@@ -943,6 +1013,36 @@ const DOMAINS = [
               "Automatically retry the patent database timeout within the subagent, returning a unified result once all categories are complete or exhausted."],
         correct:2,
         exp:"<strong>Distinguish access failure from valid empty result from success — each requires a different coordinator response.</strong> Academic = success (15 papers, proceed). Industry = isError:false + empty results (looked and found nothing — valid, no retry needed). Patent = isError:true with structured context (connection timeout — may be worth retrying with a different query or at a later time). Conflating these (A, B) destroys the coordinator's ability to make targeted recovery decisions. Silent retry (D) may resolve the timeout but hides the failure context that helps the coordinator decide whether broader retry or fallback is needed."
+      },
+      {
+        scenario:"Developer Productivity Tools",
+        q:"You're running an extended codebase exploration session to map a legacy system's data flow. After 30+ turns, the context is 78% full and Claude has identified key service boundaries and data transformations. You need to continue across multiple future sessions without losing these findings. What's the most reliable approach?",
+        opts:["Use <code>/compact</code> to compress the current session and continue from where you left off.",
+              "Ask Claude to summarize its findings in a response, then manually copy them into a document.",
+              "Have Claude write the key findings — service boundaries, data flow maps, identified dependencies — to a scratchpad file in the repo that future sessions can read.",
+              "Start a new session with a detailed prompt describing the codebase from memory."],
+        correct:2,
+        exp:"<strong>Scratchpad files persist findings across context boundaries and session restarts.</strong> Claude writes structured findings to a file; future sessions load it and continue with full context. /compact (A) extends the current session but doesn't survive a crash or persist to a new session. Summarizing in a response (B) requires manual effort and loses structure. Memory prompts (D) are lossy and depend on human recall — they don't preserve the specific findings Claude discovered."
+      },
+      {
+        scenario:"Structured Data Extraction",
+        q:"Your extraction pipeline reports 96% accuracy across 10,000 invoices processed last month. Your team proposes removing human review entirely based on this metric. What validation step is most critical before automating the full pipeline?",
+        opts:["Run the pipeline on 1,000 additional invoices to confirm the 96% figure is stable at scale.",
+              "Analyze accuracy by document type and field segment to verify consistent performance before removing human review.",
+              "Lower the confidence threshold from 0.9 to 0.85 to approve more extractions automatically and increase throughput.",
+              "Add a second extraction pass to catch the 4% of errors the first pass misses."],
+        correct:1,
+        exp:"<strong>Aggregate accuracy masks catastrophic error rates on specific segments.</strong> A pipeline that's 99.9% accurate on standard digital invoices but 40% accurate on handwritten or scanned ones still reports ~96% overall. Before removing human review, validate accuracy by document type, field, and format. Confidence threshold adjustment (C) and second passes (D) are optimisations — neither validates whether the 96% is evenly distributed. Additional volume (A) confirms stability, not consistency across segments."
+      },
+      {
+        scenario:"Customer Support Resolution Agent",
+        q:"A customer contacts support saying 'I need help with my account.' Your agent calls <code>get_customer</code> and the tool returns three different customer records matching that name. What should the agent do?",
+        opts:["Select the most recently active account — it is most likely the customer contacting support.",
+              "Select the account with the highest lifetime value to prioritize high-value customers.",
+              "Ask the customer for an additional identifier (email address, account number, or order number) to resolve the ambiguity before proceeding.",
+              "Escalate immediately to a human agent since the agent cannot determine the correct account without additional information."],
+        correct:2,
+        exp:"<strong>Multiple matches → request additional identifiers. Never select by heuristic.</strong> Heuristic selection (A, B) risks acting on the wrong account — potentially exposing one customer's data to another or making unauthorized changes. The agent can resolve this itself by asking a follow-up question: email, account number, or recent order ID. Immediate escalation (D) is unnecessarily disruptive when a clarifying question resolves the ambiguity."
       }
     ]
   }
@@ -1130,6 +1230,19 @@ function html_start() {
   <div id="start-screen">
     <div class="start-eyebrow">Anthropic Academy · Practice Exam</div>
     <h1>Claude Certified<br>Architect — Foundations</h1>
+
+    <div style="max-width:540px;margin:0 auto 32px;background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:20px 24px;text-align:left;display:flex;gap:16px;align-items:flex-start;">
+      <div style="flex-shrink:0;width:40px;height:40px;border-radius:50%;background:#f0f0ee;display:flex;align-items:center;justify-content:center;font-size:18px;">👋</div>
+      <div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#e05c2a;margin-bottom:6px;">From Hamza Farooq</div>
+        <p style="font-size:14px;color:#444;line-height:1.7;margin:0;">I passed the Claude Certified Architect exam and turned my study notes into this. The exam tests production judgment — when to use hooks vs prompts, how to structure multi-agent systems, what actually breaks in the real world. Everything I learned is here, open source.</p>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="https://github.com/hamzafarooq/claude-certified-architect" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#1a1a1a;text-decoration:none;border:1px solid #e0e0e0;padding:4px 12px;border-radius:6px;background:#fafafa;">⭐ GitHub repo</a>
+          <a href="https://anthropic.skilljar.com/" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#555;text-decoration:none;border:1px solid #e0e0e0;padding:4px 12px;border-radius:6px;background:#fafafa;">Official courses ↗</a>
+        </div>
+      </div>
+    </div>
+
     <p>${TOTAL} scenario-based questions across 5 domains. Study the domain guides first, or jump straight to the exam.</p>
     <div class="domain-table">
       ${DOMAINS.map(d=>`
