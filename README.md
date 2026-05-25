@@ -20,7 +20,7 @@ Official courses and registration: [anthropic.skilljar.com](https://anthropic.sk
 
 | Resource | Description |
 |---|---|
-| [`practice-exam.html`](practice-exam.html) | 54-question interactive practice exam across all 5 domains. No build step — open in any browser. |
+| [`practice-exam.html`](practice-exam.html) | 64-question interactive practice exam across all 5 domains. No build step — open in any browser. |
 | [`cheat-sheet/domain1.md`](cheat-sheet/domain1.md) | Agentic Architecture & Orchestration (27%) |
 | [`cheat-sheet/domain2.md`](cheat-sheet/domain2.md) | Tool Design & MCP Integration (18%) |
 | [`cheat-sheet/domain3.md`](cheat-sheet/domain3.md) | Claude Code Configuration & Workflows (20%) |
@@ -80,6 +80,8 @@ Key topics: persistent facts blocks, lost-in-the-middle positioning, explicit es
 4. **Focus on Domain 1** — it's 27% of the exam and the concepts (hooks vs prompts, coordinator tracing, parallel Task calls) appear as distractors in other domains too.
 
 If you already work with Claude regularly, the cheat sheets alone cover roughly 80% of what you need.
+
+**The key insight:** every question on the exam maps to a specific "Knowledge of:" bullet in the official exam guide. The cheat sheets in this repo are structured the same way — by task statement, not by topic. If you know which task statement a question is testing, the answer is usually obvious.
 
 ---
 
