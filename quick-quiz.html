@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Architect — 5-Minute Challenge</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --orange: #e05c2a;
+    --orange-light: #fff0eb;
+    --dark: #1a1a1a;
+    --mid: #555;
+    --border: #e0e0e0;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --bg: #f7f7f5;
+    --card: #fff;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+    background: var(--bg);
+    color: var(--dark);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── LAYOUT ── */
+  .shell { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  /* ── HEADER BAR ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+  .brand { font-size: 13px; font-weight: 700; color: var(--orange); letter-spacing: .6px; text-transform: uppercase; }
+
+  /* ── TIMER ── */
+  .timer-wrap {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--dark); color: #fff;
+    padding: 8px 16px; border-radius: 30px;
+    font-size: 15px; font-weight: 700; letter-spacing: 1px;
+    transition: background .3s;
+  }
+  .timer-wrap.warning { background: var(--orange); }
+  .timer-wrap.danger  { background: var(--red); animation: pulse 1s ease-in-out infinite; }
+  .timer-icon { font-size: 14px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+
+  /* ── PROGRESS ── */
+  .prog-row { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .prog-label { font-size: 12px; color: var(--mid); white-space: nowrap; }
+  .prog-track { flex: 1; height: 4px; background: var(--border); border-radius: 4px; }
+  .prog-fill  { height: 100%; background: var(--orange); border-radius: 4px; transition: width .4s ease; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── START SCREEN ── */
+  .start-card {
+    background: var(--card); border-radius: 16px; padding: 48px 40px;
+    box-shadow: 0 2px 24px rgba(0,0,0,.06); text-align: center;
+  }
+  .badge {
+    display: inline-block; background: var(--orange-light); color: var(--orange);
+    font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+    padding: 4px 14px; border-radius: 20px; margin-bottom: 20px;
+  }
+  .start-card h1 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .start-card .sub { font-size: 16px; color: var(--mid); margin-bottom: 32px; line-height: 1.7; }
+  .stats-row { display: flex; justify-content: center; gap: 32px; margin-bottom: 36px; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 700; color: var(--orange); }
+  .stat-label { font-size: 12px; color: var(--mid); text-transform: uppercase; letter-spacing: .6px; }
+  .topics { background: var(--bg); border-radius: 10px; padding: 16px 20px; margin-bottom: 32px; text-align: left; }
+  .topics h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--mid); margin-bottom: 10px; }
+  .topic-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .topic-pill {
+    font-size: 12px; background: var(--card); border: 1px solid var(--border);
+    padding: 3px 10px; border-radius: 12px; color: var(--dark);
+  }
+  .btn-start {
+    background: var(--dark); color: #fff; border: none;
+    padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: background .15s, transform .1s; width: 100%;
+  }
+  .btn-start:hover { background: #333; transform: translateY(-1px); }
+
+  /* ── QUESTION SCREEN ── */
+  .q-card {
+    background: var(--card); border-radius: 16px; padding: 36px 36px 28px;
+    box-shadow: 0 2px 24px rgba(0,0,0,.06);
+  }
+  .scenario-tag {
+    display: inline-block; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .8px; color: #fff;
+    padding: 3px 12px; border-radius: 12px; margin-bottom: 18px;
+  }
+  .tag-multiagent  { background: #e05c2a; }
+  .tag-cicd        { background: #7c3aed; }
+  .tag-support     { background: #1d4ed8; }
+  .tag-claudecode  { background: #15803d; }
+  .q-text {
+    font-size: 16px; line-height: 1.8; color: #111; margin-bottom: 28px; font-weight: 400;
+  }
+  code {
+    font-family: 'SF Mono','Fira Code',monospace;
+    background: #f0f0ee; color: #1a5276;
+    padding: 1px 6px; border-radius: 3px; font-size: 13px;
+    border: 1px solid #ddd;
+  }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 14px 18px; border: 1.5px solid var(--border);
+    border-radius: 10px; cursor: pointer; background: var(--card);
+    transition: border-color .12s, background .12s;
+  }
+  .opt:hover:not(.locked) { border-color: #aaa; background: #fafafa; }
+  .opt.locked { cursor: default; }
+  .opt.chosen  { border: 2px solid var(--dark); background: #f5f5f5; }
+  .opt.correct { border-color: var(--green); background: var(--green-light); }
+  .opt.wrong   { border-color: var(--red);   background: var(--red-light); }
+  .opt.reveal  { border-color: var(--green); background: var(--green-light); }
+  .opt-letter {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--dark); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .opt.correct .opt-letter { background: var(--green); }
+  .opt.wrong   .opt-letter { background: var(--red); }
+  .opt.reveal  .opt-letter { background: var(--green); }
+  .opt-text { font-size: 14.5px; line-height: 1.6; }
+
+  /* ── EXPLANATION ── */
+  .exp-box {
+    display: none;
+    margin-top: 20px; padding: 16px 18px;
+    background: #fffbf7; border: 1px solid #f0d9c8;
+    border-radius: 10px; font-size: 13.5px; line-height: 1.7; color: #333;
+  }
+  .exp-box.show { display: block; }
+  .exp-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--orange); margin-bottom: 6px; }
+
+  /* ── RESULT BADGE ── */
+  .result-badge {
+    display: none; align-items: center; gap: 8px;
+    margin-top: 16px; padding: 10px 14px;
+    border-radius: 8px; font-size: 13px; font-weight: 600;
+  }
+  .result-badge.show { display: flex; }
+  .result-badge.correct-badge { background: var(--green-light); color: var(--green); }
+  .result-badge.wrong-badge   { background: var(--red-light);   color: var(--red);   }
+
+  /* ── NEXT BUTTON ── */
+  .btn-next {
+    display: none; width: 100%; margin-top: 20px;
+    background: var(--dark); color: #fff; border: none;
+    padding: 14px 24px; border-radius: 8px; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: background .15s;
+  }
+  .btn-next.show { display: block; }
+  .btn-next:hover { background: #333; }
+
+  /* ── RESULTS SCREEN ── */
+  .results-card {
+    background: var(--card); border-radius: 16px; padding: 48px 40px;
+    box-shadow: 0 2px 24px rgba(0,0,0,.06); text-align: center;
+  }
+  .score-circle {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: var(--dark); color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+  }
+  .score-num  { font-size: 36px; font-weight: 800; line-height: 1; }
+  .score-denom { font-size: 14px; opacity: .7; }
+  .results-card h2 { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+  .results-card .verdict { font-size: 15px; color: var(--mid); margin-bottom: 32px; line-height: 1.7; }
+  .breakdown { display: flex; justify-content: center; gap: 24px; margin-bottom: 32px; flex-wrap: wrap; }
+  .bk-item { text-align: center; }
+  .bk-num { font-size: 22px; font-weight: 700; }
+  .bk-num.green { color: var(--green); }
+  .bk-num.red   { color: var(--red); }
+  .bk-label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--mid); }
+
+  /* ── CTA CARD ── */
+  .cta-card {
+    margin-top: 32px;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    border-radius: 14px; padding: 32px; color: #fff; text-align: left;
+    position: relative; overflow: hidden;
+  }
+  .cta-card::before {
+    content: '';
+    position: absolute; top: -40px; right: -40px;
+    width: 160px; height: 160px; border-radius: 50%;
+    background: rgba(224,92,42,.15);
+  }
+  .cta-eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--orange); margin-bottom: 8px;
+  }
+  .cta-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+  .cta-desc { font-size: 14px; color: #ccc; margin-bottom: 16px; line-height: 1.7; }
+  .cta-social { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .cta-social-item { font-size: 13px; color: #aaa; display: flex; align-items: center; gap: 4px; }
+  .cta-social-item strong { color: #fff; }
+  .cta-bullets { list-style: none; margin-bottom: 20px; }
+  .cta-bullets li { font-size: 13.5px; color: #ccc; padding: 4px 0; display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+  .cta-bullets li::before { content: '→'; color: var(--orange); flex-shrink: 0; margin-top: 1px; }
+  .promo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .promo-badge {
+    font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    background: var(--orange); color: #fff; padding: 4px 12px; border-radius: 6px;
+  }
+  .promo-text { font-size: 13px; color: #aaa; }
+  .btn-cta {
+    display: block; width: 100%;
+    background: var(--orange); color: #fff; border: none;
+    padding: 16px 24px; border-radius: 8px; font-size: 15px; font-weight: 700;
+    cursor: pointer; text-decoration: none; text-align: center;
+    transition: background .15s, transform .1s;
+  }
+  .btn-cta:hover { background: #c9501f; transform: translateY(-1px); }
+
+  .retry-btn {
+    display: block; margin-top: 16px; width: 100%;
+    background: transparent; color: var(--mid); border: 1.5px solid var(--border);
+    padding: 13px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  .retry-btn:hover { border-color: var(--dark); color: var(--dark); }
+
+  /* ── TIMEOUT BANNER ── */
+  .timeout-banner {
+    display: none; background: var(--red-light); border: 1px solid var(--red);
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;
+    font-size: 14px; font-weight: 600; color: var(--red); text-align: center;
+  }
+  .timeout-banner.show { display: block; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 540px) {
+    .start-card, .q-card, .results-card { padding: 28px 20px; }
+    .start-card h1 { font-size: 22px; }
+    .stats-row { gap: 20px; }
+    .cta-card { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">Claude Certified Architect</div>
+    <div class="timer-wrap" id="timerDisplay">
+      <span class="timer-icon">⏱</span>
+      <span id="timerText">5:00</span>
+    </div>
+  </div>
+
+  <!-- ══════════ START SCREEN ══════════ -->
+  <div id="screenStart" class="screen active">
+    <div class="start-card">
+      <div class="badge">Production-Level Difficulty</div>
+      <h1>Can you think like a<br>Claude Architect?</h1>
+      <p class="sub">10 tough questions drawn from real exam scenarios. Multi-agent orchestration, CI/CD automation, tool design, and agentic context management. You have <strong>5 minutes</strong>.</p>
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-num">10</div>
+          <div class="stat-label">Questions</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">5:00</div>
+          <div class="stat-label">Timer</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">5★</div>
+          <div class="stat-label">Rated course</div>
+        </div>
+      </div>
+      <div class="topics">
+        <h3>Domains covered</h3>
+        <div class="topic-list">
+          <span class="topic-pill" style="background:#fff0eb;color:#e05c2a;border-color:#f0d9c8;">Multi-Agent Architecture</span>
+          <span class="topic-pill" style="background:#f3f0ff;color:#7c3aed;border-color:#ddd5f5;">CI/CD Automation</span>
+          <span class="topic-pill" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;">Customer Support Agent</span>
+          <span class="topic-pill" style="background:#f0fdf4;color:#15803d;border-color:#bbf7d0;">Claude Code Workflow</span>
+        </div>
+      </div>
+      <button class="btn-start" onclick="startQuiz()">Start 5-Minute Challenge →</button>
+    </div>
+  </div>
+
+  <!-- ══════════ QUESTION SCREEN ══════════ -->
+  <div id="screenQuestion" class="screen">
+    <div class="prog-row">
+      <span class="prog-label" id="progLabel">Question 1 of 10</span>
+      <div class="prog-track"><div class="prog-fill" id="progFill" style="width:10%"></div></div>
+    </div>
+    <div class="timeout-banner" id="timeoutBanner">⏰ Time's up! Showing your results…</div>
+    <div class="q-card">
+      <div class="scenario-tag" id="qScenario"></div>
+      <div class="q-text" id="qText"></div>
+      <div class="options" id="optionsContainer"></div>
+      <div class="result-badge" id="resultBadge"></div>
+      <div class="exp-box" id="expBox">
+        <div class="exp-label">Why this answer</div>
+        <div id="expText"></div>
+      </div>
+      <button class="btn-next" id="btnNext" onclick="nextQuestion()">Next Question →</button>
+    </div>
+  </div>
+
+  <!-- ══════════ RESULTS SCREEN ══════════ -->
+  <div id="screenResults" class="screen">
+    <div class="results-card">
+      <div class="score-circle" id="scoreCircle">
+        <div class="score-num" id="scoreNum">0</div>
+        <div class="score-denom">/ 10</div>
+      </div>
+      <h2 id="resultsHeadline"></h2>
+      <p class="verdict" id="resultsVerdict"></p>
+      <div class="breakdown">
+        <div class="bk-item">
+          <div class="bk-num green" id="bkCorrect">0</div>
+          <div class="bk-label">Correct</div>
+        </div>
+        <div class="bk-item">
+          <div class="bk-num red" id="bkWrong">0</div>
+          <div class="bk-label">Wrong</div>
+        </div>
+        <div class="bk-item">
+          <div class="bk-num" id="bkSkipped" style="color:#888">0</div>
+          <div class="bk-label">Skipped</div>
+        </div>
+      </div>
+
+      <div class="cta-card">
+        <div class="cta-eyebrow">Go deeper — Hamza's Maven course</div>
+        <div class="cta-title">Claude Code in Practice</div>
+        <div class="cta-desc">Turn ideas into deployed products. Build 6 real applications using Claude Code, multi-agent orchestration, and MCP integrations — from PRD to production.</div>
+        <div class="cta-social">
+          <div class="cta-social-item">⭐ <strong>5.0 / 5</strong>&nbsp;(38 reviews)</div>
+          <div class="cta-social-item">👥 <strong>Live</strong>&nbsp;instructor-led</div>
+          <div class="cta-social-item">🕐 <strong>4 weeks</strong>&nbsp;· 2-3 hrs/week</div>
+        </div>
+        <ul class="cta-bullets">
+          <li>Build MVPs from concept → deployed app</li>
+          <li>Orchestrate multi-agent systems &amp; sub-agents</li>
+          <li>Integrate MCP connectors (GitHub, Notion, Google Docs)</li>
+          <li>Graduate with a portfolio of shipped projects</li>
+        </ul>
+        <div class="promo-row">
+          <span class="promo-badge">MAVEN100</span>
+          <span class="promo-text">Use this code at checkout</span>
+        </div>
+        <a class="btn-cta" href="https://maven.com/boring-bot/claude-code-in-practice?promoCode=MAVEN100" target="_blank" rel="noopener">
+          Enroll in Claude Code in Practice →
+        </a>
+      </div>
+
+      <button class="retry-btn" onclick="resetQuiz()">Retake the quiz</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const QUESTIONS = [
+  // ── MULTI-AGENT RESEARCH (2) ──────────────────────────────────────────────
+  {
+    scenario: "Multi-Agent Research",
+    tag: "tag-multiagent",
+    q: "You are building a multi-agent research pipeline for competitive market analysis. A coordinator spawns 6 parallel subagents, each researching a different competitor. Their raw outputs are concatenated in order and passed as a single prompt to a synthesis agent that writes the final report. Production monitoring reveals that when aggregated results total ~75K tokens, the synthesis agent reliably cites information from the first 15K tokens and the final 10K tokens, but frequently omits critical findings from the middle 50K tokens — even when those findings directly address the research question. How should you restructure the aggregated input?",
+    opts: [
+      "Increase the model context window so all 75K tokens are processed more uniformly",
+      "Instruct the synthesis agent to explicitly re-read all middle sections before finalising its output",
+      "Have each subagent distil its output to key findings before aggregation, reducing total input to under 30K tokens with the most critical findings placed first",
+      "Move the synthesis agent to a larger model that handles long-context inputs without degradation"
+    ],
+    correct: 2,
+    exp: "<strong>The lost-in-the-middle effect is structural — address it upstream.</strong> LLMs attend best to content at the beginning and end of long contexts; the middle degrades. Reducing total input volume via upstream summarisation is the architectural fix. Placing the most critical cross-cutting findings first exploits primacy. Prompting (B) and larger models (D) shift but don't eliminate the middle-attention drop. A larger context window (A) doesn't solve the attention pattern."
+  },
+  {
+    scenario: "Multi-Agent Research",
+    tag: "tag-multiagent",
+    q: "To execute the web search subagent and document analysis subagent in parallel rather than sequentially, the coordinator agent must:",
+    opts: [
+      "Use <code>fork_session</code> for each parallel branch before delegating tasks",
+      "Emit multiple <code>Task</code> tool calls across separate coordinator turns, one per subagent",
+      "Emit multiple <code>Task</code> tool calls within a single coordinator response",
+      "Set <code>allowedTools</code> to list all subagent type names simultaneously"
+    ],
+    correct: 2,
+    exp: "<strong>Parallel = multiple Task calls in one response.</strong> Emitting Task calls across separate turns means sequential execution — each turn waits for the prior to complete. Parallel execution only happens when multiple Task tool calls appear in a single coordinator response. <code>fork_session</code> (A) creates independent exploration branches from a shared baseline — useful for divergent analysis, not for parallelising different agent types. <code>allowedTools</code> (D) controls which tools the coordinator can call, not how many it calls at once."
+  },
+
+  // ── CI/CD (3) ─────────────────────────────────────────────────────────────
+  {
+    scenario: "Claude Code for CI/CD",
+    tag: "tag-cicd",
+    q: "Your pipeline script runs <code>claude \"Analyze this pull request for security issues\"</code> but the job hangs indefinitely. Logs indicate Claude Code is waiting for interactive input. What's the correct approach to run Claude Code in an automated pipeline?",
+    opts: [
+      "Add a <code>--timeout 300</code> flag to kill the process if it doesn't complete within 5 minutes",
+      "Pipe <code>/dev/null</code> to Claude's stdin: <code>claude \"...\" &lt; /dev/null</code>",
+      "Use the <code>--print</code> flag to enable non-interactive output mode, which prevents Claude from waiting for interactive input",
+      "Set <code>CI=true</code> before running the command so Claude auto-detects the pipeline context"
+    ],
+    correct: 2,
+    exp: "<strong>The <code>--print</code> flag is the documented mechanism for non-interactive pipeline use.</strong> It disables interactive prompts and outputs results directly to stdout. Timeout (A) masks the symptom but doesn't fix the root cause — the job still hangs until killed. Piping /dev/null (B) is a Unix workaround that doesn't engage Claude Code's non-interactive mode. <code>CI=true</code> (D) is a convention some tools honour, but Claude Code uses <code>--print</code> for this."
+  },
+  {
+    scenario: "Claude Code for CI/CD",
+    tag: "tag-cicd",
+    q: "Your CI pipeline includes two Claude-powered code review modes: (1) a pre-merge commit hook that blocks PR merging until complete, and (2) overnight \"deep analysis\" that runs while engineers are away and posts detailed suggestions to the PR the next morning. The Message Batches API offers 50% cost savings but may take up to 24 hours. Which mode should use batch processing?",
+    opts: [
+      "Both modes — always use batches to maximise cost savings",
+      "The pre-merge commit hook — its schedule is predictable so developers can plan around the batch delay",
+      "The overnight deep analysis — it has no real-time requirement and naturally tolerates the batch processing window",
+      "Neither — 24-hour processing is too unpredictable for any production CI workflow"
+    ],
+    correct: 2,
+    exp: "<strong>Batch processing is for asynchronous, latency-tolerant workflows.</strong> The overnight deep analysis meets both criteria — it runs when developers aren't waiting, and its value is a morning summary, not a real-time gate. The pre-merge hook (B) must complete before a developer can merge — 24-hour latency breaks the workflow entirely. Neither (D) ignores a valid cost optimisation. Both (A) would break the pre-merge hook."
+  },
+  {
+    scenario: "Claude Code for CI/CD",
+    tag: "tag-cicd",
+    q: "Your automated code review averages 15 findings per PR. Developers report a 40% false positive rate and growing distrust — many dismiss findings without review because \"half are wrong.\" Drilling in, you find security and correctness findings have an 8% false positive rate, while style and documentation findings have 50%+. Your CLAUDE.md already has comprehensive rules. Stakeholders have rejected any approach that filters findings before developer review. What change best addresses the bottleneck?",
+    opts: [
+      "Remove style and documentation checks entirely from the pipeline to eliminate the noisy categories",
+      "Increase system prompt detail for all finding categories to reduce false positives across the board",
+      "Add per-finding confidence scores and let developers set their own threshold before triaging",
+      "Separate findings by category in the output with per-category false-positive rate labels, so developers can calibrate trust per category rather than dismissing everything"
+    ],
+    correct: 3,
+    exp: "<strong>The trust collapse comes from mixing high-signal (8% FP) and low-signal (50% FP) categories in the same undifferentiated list.</strong> Separating by category with explicit FP rate labels lets developers apply appropriate scepticism per category — they stay engaged with security/correctness findings while applying healthy scepticism to style ones. Removing categories (A) gives up valid value. Per-finding confidence scores (B) require developers to calibrate without category context. Generic prompting improvements (D) won't close a 40-point gap in signal quality between categories."
+  },
+
+  // ── CUSTOMER SUPPORT AGENT (2) ────────────────────────────────────────────
+  {
+    scenario: "Customer Support Agent",
+    tag: "tag-support",
+    q: "You're implementing the agentic loop for your support agent. After each API call to Claude, you need to decide: continue the loop (execute requested tools and call Claude again) or stop (return the final response to the customer). What determines this decision?",
+    opts: [
+      "Whether Claude's response contains a <code>tool_use</code> block — if so, execute the tools and continue; if it contains only text, stop and return the response",
+      "Whether Claude's confidence score for the response exceeds a threshold you configure",
+      "Whether the customer's original request has been fully addressed, determined by a semantic similarity check",
+      "Whether the number of tool calls in the current turn has exceeded your configured <code>max_iterations</code> limit"
+    ],
+    correct: 0,
+    exp: "<strong>The loop decision is structural, not semantic.</strong> A <code>tool_use</code> block in Claude's response means it's requesting information to continue reasoning — execute the tools, add the <code>tool_result</code> to the conversation, and call Claude again. A text-only response means Claude has finished reasoning and produced its final answer — stop and return it. Confidence scores (A), semantic similarity (B), and iteration limits (D) are optional safety guards but don't replace the fundamental stop/continue signal in the response structure itself."
+  },
+  {
+    scenario: "Customer Support Agent",
+    tag: "tag-support",
+    q: "Your support agent handles single-concern requests with 94% accuracy. When customers include multiple concerns in one message (e.g., \"I need a refund for order #1234 and also update my shipping address for order #5678\"), accuracy drops to 58%. The agent typically addresses only one concern or mixes up parameters between requests. What's the most effective fix?",
+    opts: [
+      "Restrict customers to one request per message with input validation and a friendly redirect",
+      "Increase <code>max_tokens</code> to give the agent more room to process complex multi-part requests",
+      "Add an explicit decomposition step: instruct the agent to identify and list all distinct concerns before acting on any of them, then process each independently",
+      "Use parallel tool calling to handle all concerns simultaneously in a single API response"
+    ],
+    correct: 2,
+    exp: "<strong>Decompose first, act second.</strong> Multi-concern requests fail because the agent handles interleaved context simultaneously, mixing parameters across concerns. Explicit decomposition — list all concerns, then process each independently — prevents parameter confusion and ensures nothing is missed. Parallel tool calling (D) reduces latency but doesn't fix the parameter-mixing problem if concerns aren't isolated first. Token limits (B) don't help with logical decomposition. Input validation (A) offloads the problem to the customer."
+  },
+
+  // ── CLAUDE CODE WORKFLOW (3) ──────────────────────────────────────────────
+  {
+    scenario: "Claude Code Workflow",
+    tag: "tag-claudecode",
+    q: "You're creating a custom <code>/explore-alternatives</code> skill that your team uses to brainstorm and evaluate competing implementation approaches before committing to one. Developers report that after running this skill, Claude's subsequent responses are influenced by the exploration — sometimes referencing abandoned approaches or maintaining exploratory context that confuses actual implementation work. What's the most effective way to configure this skill?",
+    opts: [
+      "Add a closing instruction to the skill prompt: \"Disregard all exploration context once this skill completes\"",
+      "Configure the skill to use <code>fork_session</code> so exploration happens in an independent branch that doesn't contaminate the main session context",
+      "Create a separate CLAUDE.md file for the exploration context that overrides the main project one",
+      "Have the skill output a summary that developers paste into a new session when ready to implement"
+    ],
+    correct: 1,
+    exp: "<strong><code>fork_session</code> is designed exactly for this.</strong> It creates an independent branch from the current session state so exploration findings — abandoned approaches, divergent reasoning — don't leak back into the main session context. Prompt instructions (A) are unreliable for preventing context contamination; the conversation history still persists. A separate CLAUDE.md (C) changes project configuration, not session context. Manual summaries (D) are friction-heavy and don't prevent contamination during the exploration itself."
+  },
+  {
+    scenario: "Claude Code Workflow",
+    tag: "tag-claudecode",
+    q: "Your CLAUDE.md has grown to over 400 lines mixing coding standards, testing conventions, a PR review checklist, deployment instructions, and database migration procedures. You want Claude to always apply the coding standards and testing conventions, but reference PR review, deployment, and migration guidance only when actually performing those tasks. What's the most effective restructuring approach?",
+    opts: [
+      "Move always-apply sections to the top of CLAUDE.md and add a comment: \"Only read the section relevant to your current task\"",
+      "Split into topic-specific markdown modules and use Claude Code's <code>@import</code> syntax — root CLAUDE.md imports always-apply files, task-specific files are imported only from relevant command prompts or subdirectory CLAUDE.md files",
+      "Delete task-specific sections from CLAUDE.md and paste them directly into task prompts at runtime",
+      "Use markdown headers to clearly section the file, then instruct Claude to self-select which sections to follow"
+    ],
+    correct: 1,
+    exp: "<strong>Modular imports enable selective loading without losing single-source-of-truth.</strong> Claude Code supports <code>@import path/to/file.md</code> in CLAUDE.md, enabling you to split content into focused modules that load only when relevant. Root CLAUDE.md loads always-apply standards; task-specific modules load only via the relevant command prompt or subdirectory context. Ordering with comments (A) and self-selection instructions (D) still load everything into context every session — no selective application. Pasting at runtime (C) creates maintenance burden and breaks discoverability."
+  },
+  {
+    scenario: "Claude Code Workflow",
+    tag: "tag-claudecode",
+    q: "Your team wants to add a GitHub MCP server to enable PR lookups and CI status checks through Claude Code. Each of the six developers has their own personal access token. You want consistent tooling across the team without committing credentials to version control. What's the most effective configuration approach?",
+    opts: [
+      "Commit the MCP server config to <code>.claude/settings.json</code> with a placeholder token that each developer replaces locally",
+      "Add the MCP server definition (without credentials) to <code>.claude/settings.json</code> and document that each developer sets <code>GITHUB_TOKEN</code> in their shell environment — the server reads it at runtime",
+      "Have each developer configure the MCP server with their personal token in their global <code>~/.claude/settings.json</code> so it never touches the repo",
+      "Create a team GitHub service account, commit its token to <code>.claude/settings.json</code>, and rotate it quarterly"
+    ],
+    correct: 1,
+    exp: "<strong>Separate configuration (shareable) from credentials (personal).</strong> The MCP server definition belongs in <code>.claude/settings.json</code> so all developers get the same tooling when they clone the repo. Credentials stay out of version control — each developer sets their personal token as an environment variable the server reads at runtime. Global settings (C) work but bypass the shared tooling guarantee — developers must configure manually. Placeholder tokens (A) require manual steps and are error-prone. Committing real credentials (D) is a security antipattern regardless of rotation schedule."
+  }
+];
+
+// ── State ──
+let current = 0;
+let score = 0;
+let skipped = 0;
+let answered = [];
+let timerInterval = null;
+let secondsLeft = 300;
+let quizStarted = false;
+let timedOut = false;
+
+// ── Timer ──
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+function startTimer() {
+  const display = document.getElementById('timerDisplay');
+  const text = document.getElementById('timerText');
+  timerInterval = setInterval(() => {
+    secondsLeft--;
+    text.textContent = formatTime(secondsLeft);
+    if (secondsLeft <= 60) display.className = 'timer-wrap warning';
+    if (secondsLeft <= 20) display.className = 'timer-wrap danger';
+    if (secondsLeft <= 0) {
+      clearInterval(timerInterval);
+      handleTimeout();
+    }
+  }, 1000);
+}
+
+function handleTimeout() {
+  timedOut = true;
+  // Count unanswered questions as skipped
+  const answeredCount = answered.filter(a => a !== undefined).length;
+  skipped = QUESTIONS.length - answeredCount;
+  // If on question screen, lock it and show timeout banner then redirect
+  const banner = document.getElementById('timeoutBanner');
+  banner.classList.add('show');
+  // Lock current options
+  document.querySelectorAll('.opt').forEach(o => o.classList.add('locked'));
+  setTimeout(() => showResults(), 2000);
+}
+
+// ── Quiz flow ──
+function startQuiz() {
+  document.getElementById('screenStart').classList.remove('active');
+  document.getElementById('screenQuestion').classList.add('active');
+  quizStarted = true;
+  startTimer();
+  renderQuestion(0);
+}
+
+function renderQuestion(idx) {
+  const q = QUESTIONS[idx];
+  document.getElementById('progLabel').textContent = `Question ${idx + 1} of ${QUESTIONS.length}`;
+  document.getElementById('progFill').style.width = `${((idx + 1) / QUESTIONS.length) * 100}%`;
+  const tag = document.getElementById('qScenario');
+  tag.textContent = q.scenario;
+  tag.className = `scenario-tag ${q.tag}`;
+  document.getElementById('qText').innerHTML = q.q;
+
+  const container = document.getElementById('optionsContainer');
+  container.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  q.opts.forEach((opt, i) => {
+    const el = document.createElement('div');
+    el.className = 'opt';
+    el.innerHTML = `<div class="opt-letter">${letters[i]}</div><div class="opt-text">${opt}</div>`;
+    el.addEventListener('click', () => selectAnswer(i, el));
+    container.appendChild(el);
+  });
+
+  // Reset result elements
+  const badge = document.getElementById('resultBadge');
+  badge.className = 'result-badge';
+  badge.textContent = '';
+  document.getElementById('expBox').className = 'exp-box';
+  document.getElementById('btnNext').className = 'btn-next';
+  document.getElementById('btnNext').textContent = idx < QUESTIONS.length - 1 ? 'Next Question →' : 'See My Results →';
+  document.getElementById('timeoutBanner').classList.remove('show');
+}
+
+function selectAnswer(chosen, el) {
+  if (timedOut) return;
+  const opts = document.querySelectorAll('.opt');
+  opts.forEach(o => o.classList.add('locked'));
+
+  const q = QUESTIONS[current];
+  const isCorrect = chosen === q.correct;
+
+  if (isCorrect) {
+    el.classList.add('correct');
+    score++;
+    answered[current] = 'correct';
+  } else {
+    el.classList.add('wrong');
+    opts[q.correct].classList.add('reveal');
+    answered[current] = 'wrong';
+  }
+
+  const badge = document.getElementById('resultBadge');
+  badge.innerHTML = isCorrect
+    ? '✓ Correct'
+    : '✗ Incorrect — see explanation below';
+  badge.className = `result-badge show ${isCorrect ? 'correct-badge' : 'wrong-badge'}`;
+
+  document.getElementById('expText').innerHTML = q.exp;
+  document.getElementById('expBox').className = 'exp-box show';
+  document.getElementById('btnNext').className = 'btn-next show';
+}
+
+function nextQuestion() {
+  if (answered[current] === undefined) answered[current] = 'skipped';
+  current++;
+  if (current >= QUESTIONS.length) {
+    showResults();
+  } else {
+    renderQuestion(current);
+  }
+}
+
+// ── Results ──
+function showResults() {
+  clearInterval(timerInterval);
+  document.getElementById('screenQuestion').classList.remove('active');
+  document.getElementById('screenResults').classList.add('active');
+
+  const wrong = answered.filter(a => a === 'wrong').length;
+  const sk = QUESTIONS.length - answered.filter(a => a !== undefined).length;
+  skipped = sk;
+
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('bkCorrect').textContent = score;
+  document.getElementById('bkWrong').textContent = wrong;
+  document.getElementById('bkSkipped').textContent = skipped;
+
+  // Color score circle
+  const circle = document.getElementById('scoreCircle');
+  if (score >= 8) circle.style.background = '#15803d';
+  else if (score >= 6) circle.style.background = '#92400e';
+  else circle.style.background = '#991b1b';
+
+  // Verdict
+  const headline = document.getElementById('resultsHeadline');
+  const verdict = document.getElementById('resultsVerdict');
+  if (score === 10) {
+    headline.textContent = "Perfect score. You're exam-ready.";
+    verdict.textContent = "You nailed every question — production-level thinking across the board. The full course will take you further with live projects and hands-on orchestration.";
+  } else if (score >= 8) {
+    headline.textContent = "Strong result — architect-level instincts.";
+    verdict.textContent = "You're thinking like a Claude architect. A few gaps to close, but the fundamentals are solid. The course covers exactly where the tricky edge cases live.";
+  } else if (score >= 6) {
+    headline.textContent = "Solid foundation — a few concepts to sharpen.";
+    verdict.textContent = "You've got the right mental model on most scenarios. The questions you missed are where the real exam gets hard — agentic error handling, latency tradeoffs, and context management.";
+  } else if (score >= 4) {
+    headline.textContent = "Getting there — the hard parts are learnable.";
+    verdict.textContent = "The tricky parts of multi-agent design and CI/CD orchestration tripped you up — that's expected. These are production concepts that aren't obvious until you've built them.";
+  } else {
+    headline.textContent = "These concepts take practice.";
+    verdict.textContent = "The exam tests production judgment, not just theory. The course is built exactly for this — six real applications, live sessions, and patterns that make these questions obvious.";
+  }
+}
+
+function resetQuiz() {
+  current = 0; score = 0; skipped = 0; answered = [];
+  secondsLeft = 300; timedOut = false;
+  clearInterval(timerInterval);
+
+  const display = document.getElementById('timerDisplay');
+  display.className = 'timer-wrap';
+  document.getElementById('timerText').textContent = '5:00';
+
+  document.getElementById('screenResults').classList.remove('active');
+  document.getElementById('screenStart').classList.add('active');
+}
+</script>
+</body>
+</html>
