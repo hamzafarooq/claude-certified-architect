@@ -5,6 +5,7 @@ Community study materials for the **Claude Certified Architect: Foundations** ce
 **→ [Take the Practice Exam](https://practice-exam-deploy.vercel.app)**
 
 ---
+- [Free timed practice exams for all four Claude certifications](https://youraidept.com/network/claude-certification-practice-exam): full-length mocks drawn to the published domain weights (60/120 for CCAR-F and CCAO-F, 53/120 for CCDV-F), scored against the 720 pass mark with a per-domain breakdown and explanations. 250 original questions, no sign-up, from YAID, a Claude Partner Network firm.
 
 ## About the certification
 
